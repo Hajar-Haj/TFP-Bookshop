@@ -1,0 +1,103 @@
+---
+title: "Bookshop"
+author: "Hajar Haj"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+```{r}
+library(tidyverse) 
+library(dplyr) 
+library(here)
+library(readxl) 
+
+# file path to the Excel file
+file_path <- here("data", "Bookshop.xlsx")
+
+
+## The data has multiple sheets:
+# Read all the sheets from the Excel file
+sheet_names <- excel_sheets(file_path)
+
+#load each sheet
+all_sheets <- lapply(sheet_names, function(sheet){
+  read_excel(file_path, sheet = sheet)
+})
+
+names(all_sheets) <- sheet_names
+
+names(all_sheets)
+
+```
+
+
+```{r}
+#Cleaning Data
+
+library(janitor)
+
+
+
+all_sheets <- lapply(all_sheets, function(df) {
+  
+  # drop empty rows and columns
+  df <- remove_empty(df, which = c("rows", "cols"))
+  
+  # clean column names (make them snake_case)
+  if (!is.null(colnames(df))) {
+    df <- janitor::clean_names(df, case = "snake")
+  }
+  
+  df
+})
+
+
+# clean the sheet names
+names(all_sheets) <- make_clean_names(names(all_sheets), case = "snake")
+names(all_sheets)
+```
+
+
+
+```{r}
+
+#how many missing values in each column across all sheets:
+lapply(all_sheets, function(df) colSums(is.na(df)))
+
+#looking into the best way 
+summary(all_sheets[["sales_q1"]]$discount)
+
+# After checking the data, I found many missing values in the discounts column.
+# A quick summary showed that 0 is not a valid discount in this dataset,
+# and that the median discount is 0.10.
+# Therefore, replacing NA values with the median discount is the better option in this case.
+
+## vector of sheet names
+sales_quarterly <- c("sales_q1", "sales_q2", "sales_q3", "sales_q4")
+
+
+#loop over the vector sheet
+for (sheet in sales_quarterly) {
+  
+   #store the current sheet of the list as df
+  df <- all_sheets[[sheet]]
+  
+  #calculate the median discount for this sheet
+  med <- median(df$discount, na.rm = TRUE)
+  
+  #replace all missing values with the median we calculated above
+  df$discount[is.na(df$discount)] <- med
+  
+  #save the cleaned sheet
+  all_sheets[[sheet]] <- df
+}
+
+
+```
+
